@@ -1,2 +1,7 @@
 *.2C
 __pycache__/
+ylm*
+test*
+*.png
+*.np
+*.npy
