@@ -12,15 +12,20 @@ os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 spec = []
 res = []
 
-inReader = csv.reader(open("/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/input_update.csv", "r"))
+inReader = csv.reader(open(
+    "/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/input_update2.0ver.csv", "r"))
 for i in inReader:
     tmp = [float(j) for j in i]
     spec.append(tmp)
 
-outReader = csv.reader(open("/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/output_update.csv", "r"))
+outReader = csv.reader(open(
+    "/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/output_update2.0ver.csv", "r"))
 for i in outReader:
     tmp = [float(j) for j in i]
     res.append(tmp)
+
+
+print(res)
 
 spec = torch.FloatTensor(spec)
 res = torch.FloatTensor(res)
@@ -35,15 +40,17 @@ class Network(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc(x))
         x = self.out(x)
+        x = F.sigmoid(x)
+        x = 100*x
         return x
 
 
 network = Network(21, 20, 8)
 
-BATCH_SIZE = 66
-TRAIN_TIMES = 50000
+BATCH_SIZE = 62
+TRAIN_TIMES = 100000
 losses = []
-optimizer = optim.Adam(network.parameters(), lr=0.001)
+optimizer = optim.Adam(network.parameters(), lr=0.1)
 
 datasets = D.TensorDataset(spec, res)
 
@@ -59,7 +66,7 @@ for epoch in range(TRAIN_TIMES):
         specs, ress = batch
 
         preds = network(specs)
-        loss = F.mse_loss(preds,ress)
+        loss = F.mse_loss(preds, ress)
 
         optimizer.zero_grad()
         loss.backward()
@@ -67,16 +74,16 @@ for epoch in range(TRAIN_TIMES):
         losses.append(loss.item())
 
     if(epoch % 100 == 0):
-        print("epoch: ",epoch," loss: ",losses[-1])
-    
+        print("epoch: ", epoch, " loss: ", losses[-1])
+
 plt.plot(losses)
 plt.show()
 
-savestr='/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/model'
-torch.save(network,savestr)
+savestr = '/Volumes/AnyShare/GroupDocuments.localized/ChallengeCup2020/ChallengeCup-master/network/model'
+torch.save(network, savestr)
 
-predy=network(spec).detach().numpy()
-trainy=res.numpy()
+predy = network(spec).detach().numpy()
+trainy = res.numpy()
 plt.ion()
 for i in range(8):
     plt.scatter([item[i] for item in predy], [item[i] for item in trainy])
