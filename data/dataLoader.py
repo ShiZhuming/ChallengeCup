@@ -132,12 +132,14 @@ class Network(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc(x))
         x = self.out(x)
+        x = F.sigmoid(x)
+        x = 100*x
         return x
 
 
 # %%
 # 初始化模型
-filestr='./modelV'
+filestr='../network/model'
 network = torch.load(filestr)
 
 
