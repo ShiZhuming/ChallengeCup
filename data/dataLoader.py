@@ -137,13 +137,13 @@ class Network(nn.Module):
 
 # %%
 # 初始化模型
-filestr='../network/model'
+filestr='./modelV'
 network = torch.load(filestr)
 
 
 # %%
 # 载入2C文件路径
-file = 'fires101.txt'
+file = 'files300.txt'
 fileList = loadFileList(file)
 
 
@@ -193,13 +193,13 @@ fig = np.array(list(fig)).reshape((8, 900, 1800))
 
 # %%
 # 存取图，避免重复读取大数据
-np.save("fig101.np",fig)
+np.save("finalfig300.np",fig)
 # b = np.load("fig.np")
 
 
 # %%
 # 作图，先作一个维度看看
 plt.imshow(fig[0], cmap ='gray')
-plt.imsave('test.png', fig[0])
-plt.imsave('testgray.png', fig[0], cmap='gray')
+plt.imsave('final300channel0.png', fig[0])
+plt.imsave('final300channel0gray.png', fig[0], cmap='gray')
 
