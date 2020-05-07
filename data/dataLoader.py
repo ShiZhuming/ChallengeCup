@@ -1,6 +1,7 @@
 # To add a new cell, type '# %%'
 # To add a new markdown cell, type '# %% [markdown]'
 # %%
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 import struct
@@ -104,13 +105,22 @@ def loadData(file):
                 for unit in range(width):
                     temp[unit] += np.mean(struct.unpack_from(fmt, f, offset))
                     offset += struct.calcsize(fmt)
+            # # where is nan???
+            # if np.min(temp) == np.nan or np.max(temp) != np.nan:
+            #     print('nan!',offset)
+            #     raise NameError
+
             for unit in range(width):
-                iim_np[pixel][band - 11] = temp[unit]/4.0
+                iim_np[pixel][band - 11] = temp[unit]/32.0
                 pixel += 1
         offset += 4*128*skip_lines# 尾部用不到的线阵
-    print("a part finished")# test
+    print("load a file finished")# test
     File.close()
     # print(np.shape(iim_np))
+    # # 哪来的nan？？？
+    # if np.min(iim_np) == np.nan or np.max(iim_np) != np.nan:
+    #     print('nan!')
+    #     raise TypeError
     return total, pos_lon, pos_lat, iim_np
 
 
@@ -139,52 +149,107 @@ class Network(nn.Module):
 
 # %%
 # 初始化模型
-filestr='../network/model'
+filestr='./modelV'
 network = torch.load(filestr)
 
 
 # %%
 # 载入2C文件路径
-file = 'files300.txt'
+file = 'files400.txt'
+
 fileList = loadFileList(file)
+# fileList = ('/mnt/c/ShareCache/施朱鸣_1800011723/Expe/TrainingSet/CE1_IIM_2C_20081112091027_20081130231727_A/DATA/CE1_BMYK_IIM_SCI_N_20080702001309_20080702021955_2700_A.2C',)
+# fileList = ('/mnt/c/ShareCache/施朱鸣_1800011723/Expe/TrainingSet/CE1_IIM_2C_20081112091027_20081130231727_A/DATA/CE1_BMYK_IIM_SCI_N_20081202154348_20081202175129_4439_A.2C',)
 
 
 # %%
 # 初始化图，全局变量！
 # fig = np.zeros((8,900,1800))
-fig = mp.Array('f', 8*900*1800)
+# fig = mp.Array('f', 8*900*1800)
+
+
+# %%
+iim = np.zeros((21*900*1800))
+iim = mp.Array('f',iim)
 
 
 # %%
 def runs(file):
+    Nnan = 0
+    Nillegal = 0
+    Nnum = 0
     # global fig
     # print('what happend')
     try:
         total_pixel, position_lon, position_lat, iim_np = loadData(file)
+    # except TypeError:
+    #     print('nan in iim of ',file,'error!')
+    #     return
+    # except NameError:
+    #     print('nan in temp of ',file,'error!')
+    #     return
+
     except BaseException:
-        print(file,'error!')
+        print('open file ',file,'error!')
         return
-    spec = torch.FloatTensor(iim_np)
-    out = network(spec)
-    figure = out.detach().numpy().T
-    for band in range(8):
+    # print(file)
+
+    # 记录抽取的数据
+    for band in range(21):
         for i in range(total_pixel):
             # fig[band][int(5*position_lat[i])+450][int(5*position_lon[i])+900] = figure[band][i]
-            fig[band*900*1800+(int(5*position_lat[i])+450) *
-                1800+int(5*position_lon[i])+900] = figure[band][i]
+            if math.isnan(iim_np[i][band]):# 跳过nan
+                Nnan += 1
+                continue
+            elif iim_np[i][band]>1.0001 or iim_np[i][band]<-0.0001:
+                Nillegal += 1
+                continue
+            else :
+                Nnum += 1
+                iim[band*900*1800+(int(5*position_lat[i])+450)*1800+int(5*position_lon[i])+900] = iim_np[i][band]
+
+    # 喂给网络
+    # spec = torch.FloatTensor(iim_np)
+    # out = network(spec)
+    # figure = out.detach().numpy().T
+    # for band in range(8):
+    #     for i in range(total_pixel):
+    #         # fig[band][int(5*position_lat[i])+450][int(5*position_lon[i])+900] = figure[band][i]
+    #         if math.isnan(figure[band][i]):
+    #             Nnan += 1
+    #             continue
+    #         else :
+    #             Nnum += 1
+    #         fig[band*900*1800+(int(5*position_lat[i])+450) *
+    #             1800+int(5*position_lon[i])+900] = figure[band][i]
+    print(file[-10:-4],'nillegal:',Nillegal,'nan:',Nnan,'num:',Nnum)
 
 
 # %%
 # 多线程设定发
 cores=mp.cpu_count()
 pool=mp.Pool(processes=cores)
+# 多线程读写图
+pool.map(runs,fileList)
 
 
 # %%
-# 多线程读写图
-pool.map(runs,fileList)
+print('load data finished')
+
+
+# %%
+iim = np.array(list(iim)).reshape((21,900*1800))
+np.save("nancatch400iim.np",iim)
+
+spec = torch.FloatTensor(iim.T)
+out = network(spec)
+figure = out.detach().numpy().T
+fig = figure.reshape(8, 900, 1800)
+
+
+# %%
 # 把压缩的数组恢复
-fig = np.array(list(fig)).reshape((8, 900, 1800))
+# fig = np.array(list(fig)).reshape((8, 900, 1800))
 
 # %% [markdown]
 # 经度划分为1800个密位，维度划分为900个密位，转换公式：
@@ -194,14 +259,23 @@ fig = np.array(list(fig)).reshape((8, 900, 1800))
 # 纬度 lat = int(5*lat) + 450
 
 # %%
-# 存取图，避免重复读取大数据
-np.save("finalfig300.np",fig)
+
+
+
+# %%
+# # 存取图，避免重复读取大数据
+np.save("nancatch400fig.np",fig)
 # b = np.load("fig.np")
 
 
 # %%
 # 作图，先作一个维度看看
-plt.imshow(fig[0], cmap ='gray')
-plt.imsave('final300channel0.png', fig[0])
-plt.imsave('final300channel0gray.png', fig[0], cmap='gray')
+# plt.imshow(fig[0], cmap ='gray')
+# plt.imsave('nancatch20.png', fig[0])
+# plt.imsave('nancatch20gray.png', fig[0], cmap='gray')
+
+
+# %%
+for i in range(8):
+    plt.imsave('nancatch400gray'+str(i)+'.png', fig[i], cmap='gray')
 
