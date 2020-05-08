@@ -2,6 +2,7 @@
 __pycache__/
 ylm*
 test*
+*.jpg
 *.png
 *.np
 *.npy
